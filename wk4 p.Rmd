@@ -1,0 +1,70 @@
+
+import packages
+```{r}
+library(tmap)
+library(tmaptools)
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+
+read the data and clean the data
+```{r}
+dataset <- st_read(here::here("wk4","HDR23-24_Composite_indices_complete_time_series.csv"))
+worldset <- st_read(here::here("wk4","World_Countries_Generalized.shp"))
+```
+```{r}
+#filter columns contain with ihdi_year
+df_ihdi <- dataset %>% select(1:5, contains("ihdi"))
+head(df_ihdi)
+  
+```
+Connect Gender data with spatial data
+```{r}
+#set as numeric
+df_ihdi <- df_ihdi %>%
+    mutate(
+        ihdi_2019 = as.numeric(ihdi_2019),
+        ihdi_2010 = as.numeric(ihdi_2010)
+    )
+#mutate the column of diff (2010-2019)
+diff_data <- df_ihdi %>%
+  select(COUNTRY = country,  
+         ihdi_2019,
+         ihdi_2010) %>%
+  mutate(ihdi_diff = ihdi_2019 - ihdi_2010)
+
+head(diff_data)
+#join Gender data with spatial data
+Datamap <- worldset %>%
+  left_join(diff_data, by = "COUNTRY")
+
+head(Datamap)
+
+```
+```{r}
+#use ggplot to create maps 
+if(require(ggplot2)) {
+  ggplot(data = Datamap) +
+    geom_sf(aes(fill = ihdi_diff)) +
+    scale_fill_gradient2(low = "grey",  high = 'red', 
+                         midpoint = 0,
+                         name = "difference in inequality between 2010 and 2019") +
+    theme_minimal() +
+    ggtitle("Gender Inequality Index change (2010 and 2019)")
+}
+```
+
+
+```{r}
+#caculate statistic summary
+Datamap %>%
+  summarise(
+    nobs = n(),
+    n = sum(!is.na(ihdi_diff)),
+    mean.ihdi_diff=mean(ihdi_diff, na.rm=TRUE),
+    sd.ageihdi_diff=sd(ihdi_diff, na.rm=TRUE)) %>%
+  knitr::kable()
+```
+
